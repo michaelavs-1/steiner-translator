@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>מתרגם שטיינר — עברית ↔ גרמנית</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161a22; --panel2:#1d2230; --txt:#e8ecf3;
+    --muted:#9aa3b2; --accent:#c9a96a; --accent2:#8fb3ff; --danger:#ff6b6b;
+    --border:#2a3040;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);font-family:'Segoe UI','Assistant','Heebo',system-ui,sans-serif}
+  header{padding:22px 28px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:linear-gradient(180deg,#141826,#0f1115)}
+  header h1{margin:0;font-size:20px;letter-spacing:.3px}
+  header .sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .wrap{max-width:1200px;margin:0 auto;padding:22px 24px 60px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:900px){.row{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px}
+  .card h3{margin:0 0 10px;font-size:15px;color:var(--accent)}
+  textarea,input,select,button{font-family:inherit;font-size:15px}
+  textarea{width:100%;min-height:220px;background:var(--panel2);color:var(--txt);border:1px solid var(--border);border-radius:10px;padding:12px;resize:vertical;line-height:1.7}
+  input[type=text],input[type=password],select{width:100%;background:var(--panel2);color:var(--txt);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;align-items:center}
+  button{cursor:pointer;background:var(--accent);color:#1a1205;border:0;padding:10px 16px;border-radius:10px;font-weight:600;transition:.15s}
+  button:hover{transform:translateY(-1px);filter:brightness(1.05)}
+  button.secondary{background:transparent;color:var(--txt);border:1px solid var(--border)}
+  button.ghost{background:transparent;color:var(--accent2);border:1px dashed var(--border)}
+  .out{min-height:220px;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px;line-height:1.8;white-space:pre-wrap;word-wrap:break-word;overflow:auto}
+  .settings{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:end}
+  @media(max-width:900px){.settings{grid-template-columns:1fr 1fr}}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .tag{display:inline-block;background:#24304a;color:#cfe1ff;border-radius:999px;padding:3px 10px;font-size:12px;margin:2px}
+  .alt{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:8px 0}
+  .alt b{color:var(--accent)}
+  .status{font-size:13px;color:var(--muted);margin-top:8px}
+  .err{color:var(--danger)}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .pill{background:#20273a;color:#dfe5f2;border:1px solid var(--border);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer}
+  .pill.active{background:var(--accent);color:#1a1205;border-color:transparent}
+  details{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:10px}
+  details summary{cursor:pointer;color:var(--accent2)}
+  .kbd{background:#000;border:1px solid #333;border-radius:4px;padding:1px 6px;font-size:12px;color:#ddd}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:30px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>מתרגם שטיינר · Steiner Translator</h1>
+    <div class="sub">עברית ↔ גרמנית · עם קונטקסט אנתרופוסופי עמוק · מבוסס OpenAI</div>
+  </div>
+  <div>
+    <button class="secondary" onclick="toggleSettings()">⚙ הגדרות</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div id="settingsCard" class="card" style="margin-bottom:16px">
+    <h3>הגדרות API</h3>
+    <div class="settings">
+      <div>
+        <label>מפתח OpenAI API (נשמר מקומית בדפדפן בלבד)</label>
+        <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off"/>
+      </div>
+      <div>
+        <label>מודל</label>
+        <select id="model">
+          <option value="gpt-4o">gpt-4o (מומלץ)</option>
+          <option value="gpt-4o-mini">gpt-4o-mini (מהיר/זול)</option>
+          <option value="gpt-4-turbo">gpt-4-turbo</option>
+          <option value="o1-preview">o1-preview</option>
+        </select>
+      </div>
+      <div>
+        <label>טמפרטורה</label>
+        <input id="temp" type="text" value="0.2"/>
+      </div>
+      <div>
+        <button onclick="saveKey()">שמור</button>
+      </div>
+    </div>
+    <div class="status">המפתח נשמר ב-localStorage של הדפדפן. לא נשלח לשום שרת מלבד OpenAI.</div>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <h3>טקסט מקור</h3>
+      <div class="toolbar">
+        <span class="pill active" data-dir="he2de" onclick="setDir('he2de')">עברית → גרמנית</span>
+        <span class="pill" data-dir="de2he" onclick="setDir('de2he')">גרמנית → עברית</span>
+        <span class="pill" data-dir="auto" onclick="setDir('auto')">זיהוי אוטומטי</span>
+      </div>
+      <textarea id="src" placeholder="הדבק כאן משפט / פסקה / מילה מבודדת..."></textarea>
+      <div class="controls">
+        <button onclick="translateText()">🔁 תרגם</button>
+        <button class="secondary" onclick="explainTerm()">📖 הסבר מונח בקונטקסט שטיינר</button>
+        <button class="ghost" onclick="findAlternatives()">🔍 מצא אלטרנטיבות / נרדפות</button>
+        <button class="secondary" onclick="document.getElementById('src').value=''">✕ נקה</button>
+      </div>
+      <div id="status" class="status"></div>
+    </div>
+
+    <div class="card">
+      <h3>תוצאה</h3>
+      <div id="out" class="out" dir="auto">התוצאה תופיע כאן...</div>
+      <div class="controls">
+        <button class="secondary" onclick="copyOut()">📋 העתק</button>
+        <button class="ghost" onclick="refineResult()">✨ שפר / חדד</button>
+      </div>
+    </div>
+  </div>
+
+  <details>
+    <summary>על הפרומפט ועל הגישה</summary>
+    <p>הממשק בנוי עבור מתרגם מקצועי של כתבי רודולף שטיינר. הפרומפט מנחה את המודל להתחשב ב:
+    טרמינולוגיה אנתרופוסופית מבוססת (Geisteswissenschaft, Ich, Astralleib, Ätherleib, Wesensglieder, Imagination/Inspiration/Intuition, Devachan, Ahriman, Luzifer וכו'),
+    הקשר פילוסופי גרמני-אידיאליסטי (גתה, שילר, פיכטה), רובד מיסטי-נוצרי, משלב לשוני נעלה של שטיינר,
+    ובחירה בין מונחים שנתקבעו בעברית האנתרופוסופית (למשל "האני", "הגוף האתרי", "הגוף האסטרלי", "עולם הרוח").
+    בקשות לאלטרנטיבות מחזירות מספר אפשרויות מדורגות עם הסבר ניואנס וגוון משמעות.</p>
+  </details>
+
+  <footer>נבנה עבור אבא של מיכאל · 2026</footer>
+</div>
+
+<script>
+const LS_KEY='steiner_openai_key_v1';
+const LS_MODEL='steiner_model_v1';
+let currentDir='he2de';
+
+function $(id){return document.getElementById(id)}
+function toggleSettings(){const s=$('settingsCard');s.style.display=s.style.display==='none'?'block':'none'}
+function setDir(d){currentDir=d;document.querySelectorAll('.pill').forEach(p=>p.classList.toggle('active',p.dataset.dir===d))}
+function saveKey(){localStorage.setItem(LS_KEY,$('apiKey').value.trim());localStorage.setItem(LS_MODEL,$('model').value);setStatus('נשמר ✓')}
+function setStatus(t,err){const s=$('status');s.textContent=t||'';s.className='status'+(err?' err':'')}
+function copyOut(){navigator.clipboard.writeText($('out').innerText);setStatus('הועתק ללוח')}
+(function init(){
+  const k=localStorage.getItem(LS_KEY);if(k)$('apiKey').value=k;
+  const m=localStorage.getItem(LS_MODEL);if(m)$('model').value=m;
+})();
+
+const SYSTEM_PROMPT = `אתה מתרגם בכיר ומומחה עולמי לכתבי רודולף שטיינר (Rudolf Steiner) ולאנתרופוסופיה, בעל שליטה מלאה בעברית ובגרמנית ברמת שפת אם, כולל גרמנית עתיקה/פילוסופית של ראשית המאה ה-20 ועברית ספרותית-הגותית.
+
+עקרונות עבודה:
+1. נאמנות מוחלטת לטרמינולוגיה האנתרופוסופית המקובלת. מונחי יסוד כמו:
+   - Ich = "האני" (לא "האגו")
+   - Ätherleib = "הגוף האתרי"
+   - Astralleib = "הגוף האסטרלי"
+   - Geistselbst = "העצמי הרוחי"
+   - Lebensgeist = "רוח-החיים"
+   - Geistesmensch = "אדם-הרוח"
+   - Geisteswissenschaft = "מדע הרוח"
+   - Wesensglied(er) = "אברי המהות"
+   - Imagination/Inspiration/Intuition = "אימגינציה/אינספירציה/אינטואיציה" (תעתיק)
+   - Ahriman, Luzifer = אהרימן, לוציפר (תעתיק)
+   - Michael = מיכאל (המלאך/ארכאי)
+   - Devachan, Kamaloka = תעתיק
+   - Weltenwort = "דבר-העולם"
+   - Denken/Fühlen/Wollen = "חשיבה/רגש/רצון"
+2. שמירה על המשלב הלשוני הגבוה והקצב הריתמי של שטיינר.
+3. כאשר יש מספר אפשרויות תרגום — הצע את הבחירה הראשונה ואז ציין אלטרנטיבות עם הסבר ניואנס.
+4. שקיפות: אם מונח טעון כמה פירושים, הסבר בקצרה בסוגריים את ההקשר.
+5. אל תוסיף פרשנות מעבר לנדרש. תרגום מדויק קודם לכל.
+6. כבד את ההקשר הפילוסופי-גרמני-אידיאליסטי (גתה, פיכטה, שלינג) כשרלוונטי.
+7. הבחן בין שימוש יומיומי למונח טכני-אנתרופוסופי של אותה מילה.`;
+
+async function callOpenAI(messages,opts={}){
+  const key=$('apiKey').value.trim()||localStorage.getItem(LS_KEY);
+  if(!key){setStatus('חסר מפתח API — הזן אותו בהגדרות',true);throw new Error('no key')}
+  const model=$('model').value;
+  const temperature=parseFloat($('temp').value||'0.2');
+  setStatus('שולח ל-OpenAI...');
+  const body={model,messages,temperature};
+  const r=await fetch('https://api.openai.com/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+    body:JSON.stringify(body)
+  });
+  if(!r.ok){const e=await r.text();setStatus('שגיאה: '+e.slice(0,200),true);throw new Error(e)}
+  const j=await r.json();
+  setStatus('הושלם ✓');
+  return j.choices[0].message.content;
+}
+
+function dirLabel(){
+  if(currentDir==='he2de')return 'תרגם מעברית לגרמנית';
+  if(currentDir==='de2he')return 'תרגם מגרמנית לעברית';
+  return 'זהה את שפת המקור ותרגם לשפה השנייה (עברית↔גרמנית)';
+}
+
+async function translateText(){
+  const src=$('src').value.trim();if(!src){setStatus('אין טקסט',true);return}
+  const user=`${dirLabel()}.
+
+טקסט מקור:
+"""${src}"""
+
+החזר בפורמט:
+— תרגום ראשי (הכי מדויק ונאמן):
+[הטקסט המתורגם]
+
+— הערות תרגום (רק אם יש מונחי מפתח או דילמות):
+• מונח A: הבחירה שלי, וחלופות אפשריות עם ניואנסים.
+
+— תרגום חלופי (אם יש סגנון שונה משמעותית, למשל ספרותי יותר מול נאמן יותר למקור):
+[אופציונלי]`;
+  try{
+    const out=await callOpenAI([{role:'system',content:SYSTEM_PROMPT},{role:'user',content:user}]);
+    $('out').textContent=out;
+  }catch(e){}
+}
+
+async function findAlternatives(){
+  const src=$('src').value.trim();if(!src){setStatus('הדבק מילה או צירוף',true);return}
+  const user=`עבור המילה/הצירוף הבאים בהקשר של כתבי רודולף שטיינר, הצע 5–8 תרגומים/נרדפות/אלטרנטיבות עם הסבר הניואנס של כל אחד והמלצה מתי להשתמש בו. ציין איזו חלופה היא "הסטנדרט האנתרופוסופי" ואיזו ספרותית/חלופית.
+
+קלט: """${src}"""
+כיוון: ${dirLabel()}
+
+פורמט פלט:
+1. **חלופה** — ניואנס / מתי מתאים / (סטנדרט אנתרופוסופי? כן/לא)
+2. ...`;
+  try{
+    const out=await callOpenAI([{role:'system',content:SYSTEM_PROMPT},{role:'user',content:user}]);
+    $('out').textContent=out;
+  }catch(e){}
+}
+
+async function explainTerm(){
+  const src=$('src').value.trim();if(!src){setStatus('הדבק מונח',true);return}
+  const user=`הסבר בהרחבה את המונח/הביטוי בהקשר האנתרופוסופי של רודולף שטיינר:
+"""${src}"""
+
+כלול:
+1. משמעות בגרמנית של שטיינר (עם מקורות/הרצאות אם אתה יודע).
+2. תרגום/תעתיק עברי סטנדרטי + חלופות.
+3. ניואנס פילוסופי והיכן המונח מופיע במיוחד בקורפוס של שטיינר.
+4. טעויות תרגום נפוצות שכדאי להימנע מהן.`;
+  try{
+    const out=await callOpenAI([{role:'system',content:SYSTEM_PROMPT},{role:'user',content:user}]);
+    $('out').textContent=out;
+  }catch(e){}
+}
+
+async function refineResult(){
+  const current=$('out').innerText.trim();const src=$('src').value.trim();
+  if(!current){setStatus('אין תוצאה לשפר',true);return}
+  const user=`להלן תרגום קיים של טקסט משטיינר. שפר את איכותו: דייק טרמינולוגיה, החלק קצב משפט, שמור על המשלב הגבוה, ותקן בחירות מילים לא-אופטימליות. הסבר בקצרה בסוף מה שינית ולמה.
+
+מקור:
+"""${src}"""
+
+תרגום קיים:
+"""${current}"""`;
+  try{
+    const out=await callOpenAI([{role:'system',content:SYSTEM_PROMPT},{role:'user',content:user}]);
+    $('out').textContent=out;
+  }catch(e){}
+}
+</script>
+</body>
+</html>
