@@ -29,9 +29,10 @@
   button.secondary{background:transparent;color:var(--txt);border:1px solid var(--border)}
   button.ghost{background:transparent;color:var(--accent2);border:1px dashed var(--border)}
   .out{min-height:220px;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px;line-height:1.8;white-space:pre-wrap;word-wrap:break-word;overflow:auto}
-  .settings{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:end}
+  .settings{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;align-items:end}
   @media(max-width:900px){.settings{grid-template-columns:1fr 1fr}}
   label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .save-ind{color:#7dd884;font-size:12px;margin-right:8px}
   .tag{display:inline-block;background:#24304a;color:#cfe1ff;border-radius:999px;padding:3px 10px;font-size:12px;margin:2px}
   .alt{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:8px 0}
   .alt b{color:var(--accent)}
@@ -60,10 +61,10 @@
 <div class="wrap">
 
   <div id="settingsCard" class="card" style="margin-bottom:16px">
-    <h3>הגדרות API</h3>
+    <h3>הגדרות API <span id="saveInd" class="save-ind"></span></h3>
     <div class="settings">
       <div>
-        <label>מפתח OpenAI API (נשמר מקומית בדפדפן בלבד)</label>
+        <label>מפתח OpenAI API (נשמר אוטומטית בדפדפן)</label>
         <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off"/>
       </div>
       <div>
@@ -79,11 +80,8 @@
         <label>טמפרטורה</label>
         <input id="temp" type="text" value="0.2"/>
       </div>
-      <div>
-        <button onclick="saveKey()">שמור</button>
-      </div>
     </div>
-    <div class="status">המפתח נשמר ב-localStorage של הדפדפן. לא נשלח לשום שרת מלבד OpenAI.</div>
+    <div class="status">המפתח נשמר ב-localStorage של הדפדפן ברגע שאתה מקליד אותו. לא נשלח לשום שרת מלבד OpenAI.</div>
   </div>
 
   <div class="row">
@@ -129,17 +127,26 @@
 <script>
 const LS_KEY='steiner_openai_key_v1';
 const LS_MODEL='steiner_model_v1';
+const LS_TEMP='steiner_temp_v1';
 let currentDir='he2de';
 
 function $(id){return document.getElementById(id)}
 function toggleSettings(){const s=$('settingsCard');s.style.display=s.style.display==='none'?'block':'none'}
 function setDir(d){currentDir=d;document.querySelectorAll('.pill').forEach(p=>p.classList.toggle('active',p.dataset.dir===d))}
-function saveKey(){localStorage.setItem(LS_KEY,$('apiKey').value.trim());localStorage.setItem(LS_MODEL,$('model').value);setStatus('נשמר ✓')}
+function flashSaved(){const i=$('saveInd');i.textContent='✓ נשמר';clearTimeout(window.__flashT);window.__flashT=setTimeout(()=>i.textContent='',1500)}
+function autoSaveKey(){localStorage.setItem(LS_KEY,$('apiKey').value.trim());flashSaved()}
+function autoSaveModel(){localStorage.setItem(LS_MODEL,$('model').value);flashSaved()}
+function autoSaveTemp(){localStorage.setItem(LS_TEMP,$('temp').value);flashSaved()}
 function setStatus(t,err){const s=$('status');s.textContent=t||'';s.className='status'+(err?' err':'')}
 function copyOut(){navigator.clipboard.writeText($('out').innerText);setStatus('הועתק ללוח')}
 (function init(){
   const k=localStorage.getItem(LS_KEY);if(k)$('apiKey').value=k;
   const m=localStorage.getItem(LS_MODEL);if(m)$('model').value=m;
+  const t=localStorage.getItem(LS_TEMP);if(t)$('temp').value=t;
+  $('apiKey').addEventListener('input',autoSaveKey);
+  $('model').addEventListener('change',autoSaveModel);
+  $('temp').addEventListener('input',autoSaveTemp);
+  if(k)$('saveInd').textContent='✓ מפתח טעון';
 })();
 
 const SYSTEM_PROMPT = `אתה מתרגם בכיר ומומחה עולמי לכתבי רודולף שטיינר (Rudolf Steiner) ולאנתרופוסופיה, בעל שליטה מלאה בעברית ובגרמנית ברמת שפת אם, כולל גרמנית עתיקה/פילוסופית של ראשית המאה ה-20 ועברית ספרותית-הגותית.
