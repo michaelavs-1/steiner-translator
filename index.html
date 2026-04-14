@@ -4,7 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>מתרגם שטיינר — עברית ↔ גרמנית</title>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
   :root{
     --bg:#0f1115; --panel:#161a22; --panel2:#1d2230; --txt:#e8ecf3;
@@ -30,7 +29,7 @@
   button.secondary{background:transparent;color:var(--txt);border:1px solid var(--border)}
   button.ghost{background:transparent;color:var(--accent2);border:1px dashed var(--border)}
   .out{min-height:220px;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px;line-height:1.8;white-space:pre-wrap;word-wrap:break-word;overflow:auto}
-  .settings{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;align-items:end}
+  .settings{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;align-items:end}
   @media(max-width:900px){.settings{grid-template-columns:1fr 1fr}}
   label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
   .save-ind{color:#7dd884;font-size:12px;margin-right:8px}
@@ -42,11 +41,9 @@
   details{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:10px}
   details summary{cursor:pointer;color:var(--accent2)}
   footer{text-align:center;color:var(--muted);font-size:12px;margin-top:30px}
-  .sync{margin-top:14px;padding:14px;background:#111826;border:1px dashed var(--border);border-radius:10px}
-  .sync h4{margin:0 0 8px;color:var(--accent2);font-size:14px}
-  #qr{margin-top:10px;text-align:center}
-  #qr canvas,#qr img{background:#fff;padding:8px;border-radius:8px;max-width:220px}
-  .syncLink{word-break:break-all;background:#0b0f17;padding:8px 10px;border-radius:6px;font-family:monospace;font-size:11px;color:#cfe1ff;margin-top:8px}
+  .cloud{margin-top:14px;padding:12px;background:#0e1726;border:1px solid var(--border);border-radius:10px}
+  .cloud h4{margin:0 0 6px;color:var(--accent2);font-size:14px}
+  .cloud .desc{font-size:12px;color:var(--muted);margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -66,8 +63,12 @@
     <h3>הגדרות API <span id="saveInd" class="save-ind"></span></h3>
     <div class="settings">
       <div>
-        <label>מפתח OpenAI API (נשמר אוטומטית במכשיר זה)</label>
+        <label>מפתח OpenAI API</label>
         <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off"/>
+      </div>
+      <div>
+        <label>סיסמת סנכרון</label>
+        <input id="passphrase" type="text" value="12345"/>
       </div>
       <div>
         <label>מודל</label>
@@ -83,18 +84,14 @@
         <input id="temp" type="text" value="0.2"/>
       </div>
     </div>
-    <div class="status">המפתח נשמר אוטומטית ב-localStorage של הדפדפן. הוא לא נשלח לאף שרת מלבד OpenAI.</div>
-
-    <div class="sync">
-      <h4>📱 סנכרון מכשיר — העתקת המפתח לטלפון / מחשב אחר</h4>
-      <div class="status" style="margin:0 0 8px">localStorage נפרד לכל דפדפן/מכשיר. לחץ על הכפתור ותקבל קוד QR + קישור — סרוק בטלפון פעם אחת, והמפתח יישמר גם שם אוטומטית.</div>
+    <div class="cloud">
+      <h4>☁ סנכרון ענן אוטומטי</h4>
+      <div class="desc">המפתח מוצפן בסיסמת הסנכרון ועולה לענן. בכל מכשיר חדש: פתח את האתר, הסיסמה כבר מלאה (12345), והמפתח יירד אוטומטית. אין צורך להקליד שוב.</div>
       <div class="controls">
-        <button onclick="generateSyncLink()">🔗 צור קישור סנכרון (QR)</button>
-        <button class="secondary" onclick="copyLink()">📋 העתק קישור</button>
-        <button class="ghost" onclick="hideSync()">✕ הסתר</button>
+        <button onclick="cloudUpload()">⬆ שמור בענן</button>
+        <button class="secondary" onclick="cloudDownload()">⬇ טען מהענן</button>
+        <span id="cloudStatus" class="status" style="margin:0"></span>
       </div>
-      <div id="qr"></div>
-      <div id="syncLink" class="syncLink" style="display:none"></div>
     </div>
   </div>
 
@@ -130,67 +127,103 @@
 </div>
 
 <script>
-const LS_KEY='steiner_openai_key_v1';
-const LS_MODEL='steiner_model_v1';
-const LS_TEMP='steiner_temp_v1';
+const LS_KEY='steiner_openai_key_v2';
+const LS_MODEL='steiner_model_v2';
+const LS_TEMP='steiner_temp_v2';
+const LS_PASS='steiner_pass_v2';
+const APP_SALT='steiner-translator-v2-anthro-rudolf';
 let currentDir='he2de';
 
 function $(id){return document.getElementById(id)}
 function toggleSettings(){const s=$('settingsCard');s.style.display=s.style.display==='none'?'block':'none'}
 function setDir(d){currentDir=d;document.querySelectorAll('.pill').forEach(p=>p.classList.toggle('active',p.dataset.dir===d))}
 function flashSaved(){const i=$('saveInd');i.textContent='✓ נשמר';clearTimeout(window.__flashT);window.__flashT=setTimeout(()=>i.textContent='',1500)}
-function autoSaveKey(){localStorage.setItem(LS_KEY,$('apiKey').value.trim());flashSaved()}
-function autoSaveModel(){localStorage.setItem(LS_MODEL,$('model').value);flashSaved()}
-function autoSaveTemp(){localStorage.setItem(LS_TEMP,$('temp').value);flashSaved()}
 function setStatus(t,err){const s=$('status');s.textContent=t||'';s.className='status'+(err?' err':'')}
+function setCloudStatus(t,err){const s=$('cloudStatus');s.textContent=t||'';s.className='status'+(err?' err':'')}
 function copyOut(){navigator.clipboard.writeText($('out').innerText);setStatus('הועתק ללוח')}
-function hideSync(){$('qr').innerHTML='';$('syncLink').style.display='none'}
 
-function b64url(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
-function b64urlDecode(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';try{return decodeURIComponent(escape(atob(s)))}catch(e){return ''}}
+function buf2hex(b){return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')}
+function hex2buf(h){const a=new Uint8Array(h.length/2);for(let i=0;i<a.length;i++)a[i]=parseInt(h.substr(i*2,2),16);return a.buffer}
 
-function generateSyncLink(){
+async function deriveKeyAndId(passphrase){
+  const enc=new TextEncoder();
+  const keyMaterial=await crypto.subtle.importKey('raw',enc.encode(passphrase+APP_SALT),'PBKDF2',false,['deriveBits','deriveKey']);
+  const encKey=await crypto.subtle.deriveKey({name:'PBKDF2',salt:enc.encode('enc-'+APP_SALT),iterations:100000,hash:'SHA-256'},keyMaterial,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  const idBits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:enc.encode('id-'+APP_SALT),iterations:50000,hash:'SHA-256'},keyMaterial,256);
+  return {encKey,id:buf2hex(idBits)};
+}
+
+async function encryptPayload(encKey,payload){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const enc=new TextEncoder();
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},encKey,enc.encode(JSON.stringify(payload)));
+  return buf2hex(iv)+'.'+buf2hex(ct);
+}
+
+async function decryptPayload(encKey,blob){
+  const [ivHex,ctHex]=blob.split('.');
+  const iv=new Uint8Array(hex2buf(ivHex));
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv},encKey,hex2buf(ctHex));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+
+async function cloudUpload(){
+  const pass=$('passphrase').value.trim()||'12345';
   const key=$('apiKey').value.trim();
-  if(!key){alert('אין מפתח לסנכרון - הזן קודם את המפתח');return}
-  const payload={k:key,m:$('model').value,t:$('temp').value};
-  const hash='#sync='+b64url(JSON.stringify(payload));
-  const url=location.origin+location.pathname+hash;
-  const el=$('syncLink');el.textContent=url;el.style.display='block';
-  const qrDiv=$('qr');qrDiv.innerHTML='';
-  if(window.QRCode){
-    const c=document.createElement('canvas');qrDiv.appendChild(c);
-    QRCode.toCanvas(c,url,{width:220,margin:1},err=>{if(err)qrDiv.textContent='שגיאת QR: '+err.message});
-  }else{
-    qrDiv.innerHTML='<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(url)+'" alt="QR">';
-  }
-  window.__syncUrl=url;
-}
-function copyLink(){if(!window.__syncUrl){generateSyncLink()}navigator.clipboard.writeText(window.__syncUrl||'');setStatus('קישור הועתק')}
-
-function importFromHash(){
-  if(!location.hash.startsWith('#sync='))return false;
-  const raw=location.hash.slice('#sync='.length);
-  const j=b64urlDecode(raw);
+  if(!key){setCloudStatus('אין מפתח לשמירה',true);return}
+  setCloudStatus('מעלה לענן...');
   try{
-    const p=JSON.parse(j);
-    if(p.k){localStorage.setItem(LS_KEY,p.k);$('apiKey').value=p.k}
-    if(p.m){localStorage.setItem(LS_MODEL,p.m);$('model').value=p.m}
-    if(p.t){localStorage.setItem(LS_TEMP,p.t);$('temp').value=p.t}
-    history.replaceState(null,'',location.pathname);
-    $('saveInd').textContent='✓ מפתח סונכרן למכשיר זה';
-    return true;
-  }catch(e){return false}
+    const {encKey,id}=await deriveKeyAndId(pass);
+    const blob=await encryptPayload(encKey,{k:key,m:$('model').value,t:$('temp').value});
+    const r=await fetch('/api/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,blob})});
+    if(!r.ok){const e=await r.text();setCloudStatus('שגיאה: '+e.slice(0,150),true);return}
+    setCloudStatus('✓ נשמר בענן');
+    localStorage.setItem(LS_PASS,pass);
+  }catch(e){setCloudStatus('שגיאה: '+e.message,true)}
 }
 
-(function init(){
+async function cloudDownload(silent){
+  const pass=$('passphrase').value.trim()||'12345';
+  if(!silent)setCloudStatus('טוען מהענן...');
+  try{
+    const {encKey,id}=await deriveKeyAndId(pass);
+    const r=await fetch('/api/sync?id='+encodeURIComponent(id));
+    if(r.status===404){if(!silent)setCloudStatus('לא נמצא בענן - שמור קודם במכשיר אחד',true);return false}
+    if(!r.ok){if(!silent)setCloudStatus('שגיאה: '+r.status,true);return false}
+    const j=await r.json();
+    const p=await decryptPayload(encKey,j.blob);
+    if(p.k){$('apiKey').value=p.k;localStorage.setItem(LS_KEY,p.k)}
+    if(p.m){$('model').value=p.m;localStorage.setItem(LS_MODEL,p.m)}
+    if(p.t){$('temp').value=p.t;localStorage.setItem(LS_TEMP,p.t)}
+    localStorage.setItem(LS_PASS,pass);
+    setCloudStatus('✓ המפתח סונכרן מהענן');
+    $('saveInd').textContent='✓ סונכרן מהענן';
+    return true;
+  }catch(e){if(!silent)setCloudStatus('שגיאה בפענוח: '+e.message,true);return false}
+}
+
+function autoSaveKey(){localStorage.setItem(LS_KEY,$('apiKey').value.trim());flashSaved();debouncedCloudUpload()}
+function autoSaveModel(){localStorage.setItem(LS_MODEL,$('model').value);flashSaved();debouncedCloudUpload()}
+function autoSaveTemp(){localStorage.setItem(LS_TEMP,$('temp').value);flashSaved();debouncedCloudUpload()}
+function autoSavePass(){localStorage.setItem(LS_PASS,$('passphrase').value.trim())}
+let __uploadT;
+function debouncedCloudUpload(){clearTimeout(__uploadT);__uploadT=setTimeout(()=>{if($('apiKey').value.trim())cloudUpload()},1500)}
+
+(async function init(){
+  const storedPass=localStorage.getItem(LS_PASS);if(storedPass)$('passphrase').value=storedPass;
   const k=localStorage.getItem(LS_KEY);if(k)$('apiKey').value=k;
   const m=localStorage.getItem(LS_MODEL);if(m)$('model').value=m;
   const t=localStorage.getItem(LS_TEMP);if(t)$('temp').value=t;
   $('apiKey').addEventListener('input',autoSaveKey);
   $('model').addEventListener('change',autoSaveModel);
   $('temp').addEventListener('input',autoSaveTemp);
-  const imported=importFromHash();
-  if(!imported && k)$('saveInd').textContent='✓ מפתח טעון';
+  $('passphrase').addEventListener('input',autoSavePass);
+  if(k){$('saveInd').textContent='✓ מפתח טעון';}
+  else{
+    setCloudStatus('מנסה למשוך מהענן...');
+    const ok=await cloudDownload(true);
+    if(!ok)setCloudStatus('הזן את המפתח פעם אחת — הוא יסונכרן אוטומטית לכל המכשירים');
+  }
 })();
 
 const SYSTEM_PROMPT = `אתה מתרגם בכיר ומומחה עולמי לכתבי רודולף שטיינר (Rudolf Steiner) ולאנתרופוסופיה, בעל שליטה מלאה בעברית ובגרמנית ברמת שפת אם, כולל גרמנית עתיקה/פילוסופית של ראשית המאה ה-20 ועברית ספרותית-הגותית.
